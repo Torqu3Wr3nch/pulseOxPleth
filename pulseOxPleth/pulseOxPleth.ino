@@ -16,7 +16,7 @@ long lastMin=2200000;
 long lastMax=0;
 long rollingMin = 2200000;
 long rollingMax=0;
- 
+
 void setup() {
   Serial.begin(115200);
   particleSensor.begin(Wire, I2C_SPEED_FAST);
@@ -32,17 +32,18 @@ void setup() {
 
   particleSensor.setup(ledBrightness, sampleAverage, ledMode, sampleRate, pulseWidth, adcRange);
 
-    //Take an average of IR readings at power up
+  //Take an average of IR readings at power up; this allows us to center the plot on start up
   const byte avgAmount = 30;
   long reading;
-  for (byte x = 0 ; x < avgAmount ; x++)
-  {
+  for (byte x = 0 ; x < avgAmount ; x++){
     reading = particleSensor.getIR();
 
+    // Find max IR reading in sample
     if (reading > lastMax){
       lastMax = reading;
     }
 
+    // Find min IR reading in sample
     if (reading < lastMin){
       lastMin = reading;
     }
@@ -55,8 +56,10 @@ void setup() {
   delay(2000);
   oled.clearDisplay();
 }
- 
+
 void loop() {
+
+  // Display is only 128 pixels wide, so if we're add the end of the display, clear the display and start back over
   if(x>127)  
   {
     oled.clearDisplay();
@@ -64,6 +67,7 @@ void loop() {
     lastx=x;
   }
 
+  // Even though we're keeping track of min/max on a rolling basis, periodically reset the min/max so we don't end up with a loss of waveform amplitude
   if (z > 30) {
     z = 0;
     lastMax = rollingMax;
@@ -73,11 +77,12 @@ void loop() {
   }
  
   oled.setTextColor(WHITE);
-  long reading = particleSensor.getIR();
-  int y=40-(map(reading, lastMin, lastMax, 0, 40));
+  long reading = particleSensor.getIR();    // Read pulse ox sensor; since this is a pulse pleth, we're really only after the IR component
+  int y=40-(map(reading, lastMin, lastMax, 0, 40));   // Normalize the pleth waveform against the rolling IR min/max to keep waveform centered
   Serial.println(reading);
   oled.drawLine(lastx,lasty,x,y,WHITE);
 
+  // Keep track of min/max IR readings to keep waveform centered
   if (reading > rollingMax){
     rollingMax = reading;
   }
@@ -86,6 +91,7 @@ void loop() {
     rollingMin = reading;
   }
   
+  // Keep track of this IR reading so we can draw a line from it on the next reading
   lasty=y;
   lastx=x;
 
